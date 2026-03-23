@@ -1550,6 +1550,8 @@ struct ContentView: View {
     @EnvironmentObject var notificationStore: TerminalNotificationStore
     @EnvironmentObject var sidebarState: SidebarState
     @EnvironmentObject var sidebarSelectionState: SidebarSelectionState
+    @EnvironmentObject var gitDiffPanelState: GitDiffPanelState
+    @StateObject private var gitDiffViewModel = GitDiffViewModel()
     @State private var sidebarWidth: CGFloat = 200
     @State private var hoveredResizerHandles: Set<SidebarResizerHandle> = []
     @State private var isResizerDragging = false
@@ -2415,6 +2417,23 @@ struct ContentView: View {
             }
     }
 
+    private var terminalContentWithGitDiffPanel: some View {
+        ZStack(alignment: .trailing) {
+            terminalContentWithSidebarDropOverlay
+                .padding(.trailing, gitDiffPanelState.isVisible ? gitDiffPanelState.persistedWidth : 0)
+            if gitDiffPanelState.isVisible {
+                HStack(spacing: 0) {
+                    GitDiffResizeHandle(panelState: gitDiffPanelState)
+                    GitDiffPanelView(viewModel: gitDiffViewModel)
+                        .environmentObject(gitDiffPanelState)
+                }
+                .frame(width: gitDiffPanelState.persistedWidth)
+                .transition(.move(edge: .trailing))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: gitDiffPanelState.isVisible)
+    }
+
     @AppStorage("sidebarBlendMode") private var sidebarBlendMode = SidebarBlendModeOption.withinWindow.rawValue
 
     // Background glass settings
@@ -2587,7 +2606,7 @@ struct ContentView: View {
             // This allows withinWindow blur to see the terminal content
             layout = AnyView(
                 ZStack(alignment: .leading) {
-                    terminalContentWithSidebarDropOverlay
+                    terminalContentWithGitDiffPanel
                         .padding(.leading, sidebarState.isVisible ? sidebarWidth : 0)
                     if sidebarState.isVisible {
                         sidebarView
@@ -2601,7 +2620,7 @@ struct ContentView: View {
                     if sidebarState.isVisible {
                         sidebarView
                     }
-                    terminalContentWithSidebarDropOverlay
+                    terminalContentWithGitDiffPanel
                 }
             )
         }
@@ -2637,6 +2656,17 @@ struct ContentView: View {
             reconcileMountedWorkspaceIds()
             previousSelectedWorkspaceId = tabManager.selectedTabId
             installSidebarResizerPointerMonitorIfNeeded()
+
+            // Git diff panel: restore persisted width and wire working directory.
+            let restoredGitDiffWidth = UserDefaults.standard.double(forKey: "gitDiffPanelWidth")
+            if restoredGitDiffWidth >= Double(GitDiffPanelState.minimumWidth) {
+                gitDiffPanelState.persistedWidth = CGFloat(max(
+                    Double(GitDiffPanelState.minimumWidth),
+                    min(Double(GitDiffPanelState.maximumWidth), restoredGitDiffWidth)
+                ))
+            }
+            gitDiffViewModel.workingDirectory = focusedDirectory
+
             let restoredWidth = normalizedSidebarWidth(sidebarState.persistedWidth)
             if abs(sidebarWidth - restoredWidth) > 0.5 {
                 sidebarWidth = restoredWidth
@@ -2698,6 +2728,14 @@ struct ContentView: View {
                     ])
                 }
             }
+        })
+
+        view = AnyView(view.onChange(of: focusedDirectory) { newDir in
+            gitDiffViewModel.workingDirectory = newDir
+        })
+
+        view = AnyView(view.onChange(of: gitDiffPanelState.persistedWidth) { newValue in
+            UserDefaults.standard.set(Double(newValue), forKey: "gitDiffPanelWidth")
         })
 
         view = AnyView(view.onChange(of: tabManager.selectedTabId) { newValue in
@@ -3173,7 +3211,8 @@ struct ContentView: View {
                 windowId: windowId,
                 tabManager: tabManager,
                 sidebarState: sidebarState,
-                sidebarSelectionState: sidebarSelectionState
+                sidebarSelectionState: sidebarSelectionState,
+                gitDiffPanelState: gitDiffPanelState
             )
             installFileDropOverlay(on: window, tabManager: tabManager)
         }))
