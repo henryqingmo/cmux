@@ -1952,6 +1952,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let tabManager: TabManager
         let sidebarState: SidebarState
         let sidebarSelectionState: SidebarSelectionState
+        let gitDiffPanelState: GitDiffPanelState
         weak var window: NSWindow?
 
         init(
@@ -1959,12 +1960,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             tabManager: TabManager,
             sidebarState: SidebarState,
             sidebarSelectionState: SidebarSelectionState,
+            gitDiffPanelState: GitDiffPanelState,
             window: NSWindow?
         ) {
             self.windowId = windowId
             self.tabManager = tabManager
             self.sidebarState = sidebarState
             self.sidebarSelectionState = sidebarSelectionState
+            self.gitDiffPanelState = gitDiffPanelState
             self.window = window
         }
     }
@@ -3732,7 +3735,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         windowId: UUID,
         tabManager: TabManager,
         sidebarState: SidebarState,
-        sidebarSelectionState: SidebarSelectionState
+        sidebarSelectionState: SidebarSelectionState,
+        gitDiffPanelState: GitDiffPanelState
     ) {
         tabManager.window = window
 
@@ -3751,6 +3755,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 tabManager: tabManager,
                 sidebarState: sidebarState,
                 sidebarSelectionState: sidebarSelectionState,
+                gitDiffPanelState: gitDiffPanelState,
                 window: window
             )
             NotificationCenter.default.addObserver(
@@ -5350,6 +5355,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return false
     }
 
+    @discardableResult
+    func toggleGitDiffPanelInActiveMainWindow() -> Bool {
+        if let activeManager = tabManager,
+           let activeContext = mainWindowContexts.values.first(where: { $0.tabManager === activeManager }) {
+            if let window = activeContext.window ?? windowForMainWindowId(activeContext.windowId) {
+                setActiveMainWindow(window)
+            }
+            activeContext.gitDiffPanelState.toggle()
+            return true
+        }
+        if let keyContext = contextForMainWindow(NSApp.keyWindow) {
+            if let window = keyContext.window ?? windowForMainWindowId(keyContext.windowId) {
+                setActiveMainWindow(window)
+            }
+            keyContext.gitDiffPanelState.toggle()
+            return true
+        }
+        if let mainContext = contextForMainWindow(NSApp.mainWindow) {
+            if let window = mainContext.window ?? windowForMainWindowId(mainContext.windowId) {
+                setActiveMainWindow(window)
+            }
+            mainContext.gitDiffPanelState.toggle()
+            return true
+        }
+        if let fallbackContext = mainWindowContexts.values.first {
+            if let window = fallbackContext.window ?? windowForMainWindowId(fallbackContext.windowId) {
+                setActiveMainWindow(window)
+            }
+            fallbackContext.gitDiffPanelState.toggle()
+            return true
+        }
+        return false
+    }
+
     func sidebarVisibility(windowId: UUID) -> Bool? {
         mainWindowContexts.values.first(where: { $0.windowId == windowId })?.sidebarState.isVisible
     }
@@ -5781,11 +5820,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         )
         let notificationStore = TerminalNotificationStore.shared
 
+        let gitDiffPanelState = GitDiffPanelState()
+
         let root = ContentView(updateViewModel: updateViewModel, windowId: windowId)
             .environmentObject(tabManager)
             .environmentObject(notificationStore)
             .environmentObject(sidebarState)
             .environmentObject(sidebarSelectionState)
+            .environmentObject(gitDiffPanelState)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 360),
@@ -5824,7 +5866,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             windowId: windowId,
             tabManager: tabManager,
             sidebarState: sidebarState,
-            sidebarSelectionState: sidebarSelectionState
+            sidebarSelectionState: sidebarSelectionState,
+            gitDiffPanelState: gitDiffPanelState
         )
         installFileDropOverlay(on: window, tabManager: tabManager)
         if TerminalController.shouldSuppressSocketCommandActivation() {
@@ -9259,6 +9302,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Primary UI shortcuts
         if matchShortcut(event: event, shortcut: KeyboardShortcutSettings.shortcut(for: .toggleSidebar)) {
             _ = toggleSidebarInActiveMainWindow()
+            return true
+        }
+
+        if matchShortcut(event: event, shortcut: KeyboardShortcutSettings.shortcut(for: .toggleGitDiffPanel)) {
+            _ = toggleGitDiffPanelInActiveMainWindow()
             return true
         }
 
