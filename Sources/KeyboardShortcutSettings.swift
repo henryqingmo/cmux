@@ -46,6 +46,7 @@ enum KeyboardShortcutSettings {
         case openBrowser
         case toggleBrowserDeveloperTools
         case showBrowserJavaScriptConsole
+        case toggleGitDiffPanel
 
         var id: String { rawValue }
 
@@ -83,6 +84,7 @@ enum KeyboardShortcutSettings {
             case .openBrowser: return String(localized: "shortcut.openBrowser.label", defaultValue: "Open Browser")
             case .toggleBrowserDeveloperTools: return String(localized: "shortcut.toggleBrowserDevTools.label", defaultValue: "Toggle Browser Developer Tools")
             case .showBrowserJavaScriptConsole: return String(localized: "shortcut.showBrowserJSConsole.label", defaultValue: "Show Browser JavaScript Console")
+            case .toggleGitDiffPanel: return String(localized: "shortcut.toggleGitDiffPanel.label", defaultValue: "Toggle Code Review Panel")
             }
         }
 
@@ -120,6 +122,7 @@ enum KeyboardShortcutSettings {
             case .openBrowser: return "shortcut.openBrowser"
             case .toggleBrowserDeveloperTools: return "shortcut.toggleBrowserDeveloperTools"
             case .showBrowserJavaScriptConsole: return "shortcut.showBrowserJavaScriptConsole"
+            case .toggleGitDiffPanel: return "shortcut.toggleGitDiffPanel"
             }
         }
 
@@ -191,6 +194,8 @@ enum KeyboardShortcutSettings {
             case .showBrowserJavaScriptConsole:
                 // Safari default: Show JavaScript Console.
                 return StoredShortcut(key: "c", command: true, shift: false, option: true, control: false)
+            case .toggleGitDiffPanel:
+                return StoredShortcut(key: "g", command: true, shift: true, option: false, control: false)
             }
         }
 
@@ -323,6 +328,7 @@ enum KeyboardShortcutSettings {
     static func openBrowserShortcut() -> StoredShortcut { shortcut(for: .openBrowser) }
     static func toggleBrowserDeveloperToolsShortcut() -> StoredShortcut { shortcut(for: .toggleBrowserDeveloperTools) }
     static func showBrowserJavaScriptConsoleShortcut() -> StoredShortcut { shortcut(for: .showBrowserJavaScriptConsole) }
+    static func toggleGitDiffPanelShortcut() -> StoredShortcut { shortcut(for: .toggleGitDiffPanel) }
 }
 
 /// A keyboard shortcut that can be stored in UserDefaults
